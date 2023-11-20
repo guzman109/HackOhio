@@ -8,11 +8,12 @@ import threading
 import cv2 as cv
 import olympe
 import json
-import tritonclient.http as httpclient
-from tritonclient.utils import *
 import visualization_utils as viz_utils
 from PIL import Image
 import numpy as np
+
+# Import MegaDetector
+from MegaDetector import MegaDetector
 
 olympe.log.update_config({"loggers": {"olympe": {"level": "WARNING"}}})
 DRONE_IP = os.environ.get("DRONE_IP", "192.168.53.1")
@@ -45,8 +46,8 @@ class VideoStream(threading.Thread):
         self.drone = olympe.Drone(DRONE_IP)
         self.frame_queue = queue.Queue()
         self.flush_queue_lock = threading.Lock()
-        self.client = httpclient.InferenceServerClient(url="localhost:8000")
         self.frame_counter = 0
+        self.model = MegaDetector()
         super().__init__()
         super().start()
         
@@ -85,17 +86,8 @@ class VideoStream(threading.Thread):
         cv.imshow(window_name, cv_frame)
         cv.waitKey(1)
     
-    def send_to_triton(self, cv_frame):
-        input_tensor = [httpclient.InferInput("image", cv_frame.shape, datatype="UINT8")]
-        input_tensor[0].set_data_from_numpy(cv_frame)
-
-        output = [httpclient.InferRequestedOutput("detection_result", binary_data=False)]
-
-        query_response = self.client.infer(model_name="MegaDetector", model_version="1", inputs=input_tensor, outputs=output)
-
-        triton_output = query_response.as_numpy("detection_result")
-
-        result = json.loads( triton_output[0])
+    def detect(self, cv_frame):
+        result = self.model(cv_frame)
 
         image = Image.fromarray(cv_frame)
 
@@ -133,8 +125,8 @@ class VideoStream(threading.Thread):
                 continue
             try:
                 cv_frame = self.to_cv_frame(yuv_frame)
-                if self.frame_counter % 30 == 0:
-                    cv_frame = self.send_to_triton(cv_frame)
+                if self.frame_counter % 10 == 0:
+                    cv_frame = self.detect(cv_frame)
                     self.show_yuv_frame(window_name, cv_frame)
             except Exception:
                 traceback.print_exc()

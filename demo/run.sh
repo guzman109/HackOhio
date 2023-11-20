@@ -2,4 +2,5 @@
 #
 export QT_QPA_PLATFORM=xcb;
 export PYOPENGL_PLATFORM=glx;
-~/Documents/HackOhio/demo-venv/bin/python ~/Documents/HackOhio/demo/stream.py 
+export MODEL_REPO=~/Documents/HackOhio/model_repository/
+~/Documents/HackOhio/demo-local-venv/bin/python3.9 ~/Documents/HackOhio/demo/stream-local.py 
